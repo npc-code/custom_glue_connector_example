@@ -16,6 +16,11 @@ the ins and outs of Custom Connectors is a great starting point, since the amoun
   
 ## Deploy
 
+## Findings/Caveats
+
+## Resources
+- [AWS blog post on custom connectors](https://aws.amazon.com/blogs/big-data/developing-testing-and-deploying-custom-connectors-for-your-data-stores-with-aws-glue/) 
+
 
 
 
