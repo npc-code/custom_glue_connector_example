@@ -14,26 +14,27 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow;
-import org.apache.spark.sql.sources.v2.DataSourceV2;
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
+import org.apache.spark.sql.sources.v2.DataSourceV2;
 import org.apache.spark.sql.sources.v2.ReadSupport;
 import org.apache.spark.sql.sources.v2.WriteSupport;
-import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
-import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
+import org.apache.spark.sql.sources.v2.reader.InputPartition;
+import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.sources.v2.writer.DataSourceWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * A simple Spark DataSource V2 reads from s3 csv files.
@@ -54,16 +55,32 @@ public class CSVExpanded implements DataSourceV2, ReadSupport, WriteSupport {
 }
 
 class Reader implements DataSourceReader {
-    // Assuming the csv files to be read has a fixed schema on premise with two integer columns name, id.
-    //TODO: let's attempt to pass in a dynamic schema.
-    private final StructType schema = new StructType()
-            .add("name", "string")
-            .add("id", "int");
+
+    private final StructType schema;
     private String bucket, path;
 
     Reader(DataSourceOptions options) {
         bucket = options.get("bucket").get();
         path = options.get("path").get();
+        JSONObject my_object = new JSONObject(options.get("schema").get());
+        Iterator<String> keys = my_object.keys();
+        List<StructField> schema_fields = new ArrayList<>();
+
+        //refactor to use case statement
+        while(keys.hasNext()) {
+            String key = keys.next();
+            String value = my_object.get(key).toString();
+            if (value.equals("string")) {
+                schema_fields.add(DataTypes.createStructField(key, DataTypes.StringType, true));
+            }
+            if (value.equals("int")) {
+                schema_fields.add(DataTypes.createStructField(key, DataTypes.IntegerType, true));
+            }
+        }
+
+        schema = DataTypes.createStructType(schema_fields);
+
+
     }
 
     @Override
