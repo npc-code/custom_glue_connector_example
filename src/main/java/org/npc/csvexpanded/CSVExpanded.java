@@ -100,7 +100,7 @@ class Reader implements DataSourceReader {
         List<InputPartition<InternalRow>> rows = new ArrayList<>();
         for (int i = 0; i < my_list.size(); i++) {
             //all parameters passed here must be serializable
-            rows.add(new JavaSimpleInputPartition(my_list.get(i).getKey(), bucket));
+            rows.add(new JavaSimpleInputPartition(my_list.get(i).getKey(), bucket, schema));
         };
 
         return rows;
@@ -111,10 +111,12 @@ class Reader implements DataSourceReader {
 class JavaSimpleInputPartition implements InputPartition<InternalRow> {
 
     private String key, bucket;
+    private StructType schema;
 
-    JavaSimpleInputPartition(String key, String bucket) {
+    JavaSimpleInputPartition(String key, String bucket, StructType schema) {
         this.key = key;
         this.bucket = bucket;
+        this.schema = schema;
     }
 
     @Override
@@ -155,6 +157,7 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
     public InternalRow get() {
         String[] fields = line.split(",");
         //this will need to be modified to react to the schema passed.
+
         return new GenericInternalRow(new Object[] {UTF8String.fromString(fields[0]), Integer.parseInt(fields[1])});
     }
 
