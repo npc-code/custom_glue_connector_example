@@ -100,7 +100,7 @@ class Reader implements DataSourceReader {
         List<InputPartition<InternalRow>> rows = new ArrayList<>();
         for (int i = 0; i < my_list.size(); i++) {
             //all parameters passed here must be serializable
-            rows.add(new JavaSimpleInputPartition(my_list.get(i).getKey(), bucket));
+            rows.add(new JavaSimpleInputPartition(my_list.get(i).getKey(), bucket, schema));
         };
 
         return rows;
@@ -111,15 +111,17 @@ class Reader implements DataSourceReader {
 class JavaSimpleInputPartition implements InputPartition<InternalRow> {
 
     private String key, bucket;
+    private StructType schema;
 
-    JavaSimpleInputPartition(String key, String bucket) {
+    JavaSimpleInputPartition(String key, String bucket, StructType schema) {
         this.key = key;
         this.bucket = bucket;
+        this.schema = schema;
     }
 
     @Override
     public InputPartitionReader<InternalRow> createPartitionReader() {
-        return new JavaSimpleInputPartitionReader(key, bucket);
+        return new JavaSimpleInputPartitionReader(key, bucket, schema);
     }
 
 }
@@ -128,8 +130,10 @@ class JavaSimpleInputPartition implements InputPartition<InternalRow> {
 class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow>  {
     BufferedReader reader;
     String line = null;
+    StructType schema;
+    StructField[] structfields;
 
-    JavaSimpleInputPartitionReader(String key, String bucket) {
+    JavaSimpleInputPartitionReader(String key, String bucket, StructType schema) {
         AmazonS3 s3Client = AmazonS3Client.builder()
                 .withCredentials(new DefaultAWSCredentialsProviderChain())
                 .withRegion(new DefaultAwsRegionProviderChain().getRegion())
@@ -139,6 +143,8 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
         S3Object s3Object = s3Client
                 .getObject(new GetObjectRequest(bucket, key));
         reader  = new BufferedReader(new InputStreamReader(s3Object.getObjectContent()));
+        this.schema = schema;
+        this.structfields = schema.fields();
     }
 
     @Override
@@ -154,8 +160,21 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
     @Override
     public InternalRow get() {
         String[] fields = line.split(",");
+        List<Object> row_values = new ArrayList<>();
+
         //this will need to be modified to react to the schema passed.
-        return new GenericInternalRow(new Object[] {UTF8String.fromString(fields[0]), Integer.parseInt(fields[1])});
+        for (int i = 0; i < fields.length; i += 1) {
+            if (structfields[i].dataType().toString().equals("StringType")) {
+                row_values.add(UTF8String.fromString(fields[i]));
+            }
+
+            if (structfields[i].dataType().toString().equals("IntegerType")) {
+                row_values.add(Integer.parseInt(fields[i]));
+            }
+        }
+
+        return new GenericInternalRow(row_values.toArray());
+        //return new GenericInternalRow(new Object[] {UTF8String.fromString(fields[0]), Integer.parseInt(fields[1])});
     }
 
     @Override
