@@ -205,7 +205,7 @@ class JavaSimpleDataWriterFactory implements DataWriterFactory<InternalRow> {
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
-        return new JavaSimpleDataWriter(partitionId, taskId, epochId, bucket, keyPrefix);
+        return new JavaSimpleDataWriter(partitionId, taskId, epochId, bucket, keyPrefix, passedSchema);
     }
 }
 
@@ -215,6 +215,8 @@ class JavaSimpleDataWriter implements DataWriter<InternalRow> {
     private long epochId;
     private String bucket;
     private String keyPrefix;
+    private StructType passedSchema;
+    private StructField[] structFields;
     private StringBuilder content = new StringBuilder();
     private AmazonS3 s3Client = AmazonS3Client.builder()
             .withCredentials(new DefaultAWSCredentialsProviderChain())
@@ -222,18 +224,37 @@ class JavaSimpleDataWriter implements DataWriter<InternalRow> {
             .withForceGlobalBucketAccessEnabled(true)
             .build();
 
-    JavaSimpleDataWriter(int partitionId, long taskId, long epochId, String bucket, String keyPrefix) {
+    JavaSimpleDataWriter(int partitionId, long taskId, long epochId, String bucket, String keyPrefix, StructType passedSchema) {
         this.partitionId = partitionId;
         this.taskId = taskId;
         this.epochId = epochId;
         this.bucket = bucket;
         this.keyPrefix = keyPrefix;
+        this.passedSchema = passedSchema;
+        this.structFields = passedSchema.fields();
     }
 
     //we would want to pass down a schema here, use it to determine what we are getting from the record (int/string/etc.)
     @Override
     public void write(InternalRow record) throws IOException {
-        content.append(record.getString(0) + "," + record.getInt(1));
+        for (int i = 0; i < record.numFields(); i++) {
+            String dataType = structFields[i].dataType().toString();
+            switch (dataType) {
+                case "StringType":
+                    content.append(record.getString(i));
+
+                    break;
+                case "IntegerType":
+                    content.append(record.getInt(i));
+                    break;
+                default:
+                    System.out.println("No value");
+            }
+            if (i != record.numFields() - 1) {
+                content.append(",");
+            }
+        }
+        //content.append(record.getString(0) + "," + record.getInt(1));
 
     }
 
