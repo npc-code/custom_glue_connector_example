@@ -30,7 +30,7 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
-import org.json.JSONObject;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -54,7 +54,10 @@ public class CSVExpanded implements DataSourceV2, ReadSupport, WriteSupport {
     }
 
 }
-
+/*
+json structure that schema passed should adhere to
+{"fields": [{"metadata": {}, "name": "some_name", "nullable": bool, "type": java_primitive (string, integer, etc.)}], "type": "struct" }
+*/
 class Reader implements DataSourceReader {
 
     private final StructType schema;
@@ -63,25 +66,7 @@ class Reader implements DataSourceReader {
     Reader(DataSourceOptions options) {
         bucket = options.get("bucket").get();
         path = options.get("path").get();
-        JSONObject my_object = new JSONObject(options.get("schema").get());
-        Iterator<String> keys = my_object.keys();
-        List<StructField> schema_fields = new ArrayList<>();
-
-        //refactor to use case statement
-        while(keys.hasNext()) {
-            String key = keys.next();
-            String value = my_object.get(key).toString();
-            if (value.equals("string")) {
-                schema_fields.add(DataTypes.createStructField(key, DataTypes.StringType, true));
-            }
-            if (value.equals("int")) {
-                schema_fields.add(DataTypes.createStructField(key, DataTypes.IntegerType, true));
-            }
-        }
-
-        schema = DataTypes.createStructType(schema_fields);
-
-
+        schema = (StructType) DataType.fromJson(options.get("schema").get());
     }
 
     @Override
