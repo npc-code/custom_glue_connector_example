@@ -25,6 +25,7 @@ import org.apache.spark.sql.sources.v2.writer.DataSourceWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
+import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
@@ -186,6 +187,7 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
     }
 }
 
+//need to pass down a schema defined in such a way that the writer can parse it, thus preparing the records
 class Writer implements DataSourceWriter {
     private DataSourceOptions options;
 
@@ -207,10 +209,13 @@ class Writer implements DataSourceWriter {
 
 class JavaSimpleDataWriterFactory implements DataWriterFactory<InternalRow> {
     private String bucket, keyPrefix;
+    private final StructType passedSchema;
 
     JavaSimpleDataWriterFactory(DataSourceOptions options) {
         bucket = options.get("bucket").get();
         keyPrefix = options.get("keyPrefix").get();
+        passedSchema = (StructType) DataType.fromJson(options.get("schema").get());
+        System.out.println(passedSchema.toString());
     }
 
     @Override
@@ -240,9 +245,11 @@ class JavaSimpleDataWriter implements DataWriter<InternalRow> {
         this.keyPrefix = keyPrefix;
     }
 
+    //we would want to pass down a schema here, use it to determine what we are getting from the record (int/string/etc.)
     @Override
     public void write(InternalRow record) throws IOException {
-        content.append(record.getInt(0) + "," + record.getInt(1));
+        content.append(record.getString(0) + "," + record.getInt(1));
+
     }
 
     @Override
