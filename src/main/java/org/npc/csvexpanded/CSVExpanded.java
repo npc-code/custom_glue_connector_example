@@ -61,7 +61,7 @@ json structure that schema passed should adhere to
 class Reader implements DataSourceReader {
 
     private final StructType schema;
-    private String bucket, path;
+    protected String bucket, path;
 
     Reader(DataSourceOptions options) {
         bucket = options.get("bucket").get();
