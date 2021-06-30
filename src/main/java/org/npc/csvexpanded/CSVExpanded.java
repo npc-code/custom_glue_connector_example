@@ -35,6 +35,7 @@ import org.apache.spark.unsafe.types.UTF8String;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.sql.Date;
 import java.util.*;
 
 /**
@@ -61,6 +62,7 @@ json structure that schema passed should adhere to
 class Reader implements DataSourceReader {
 
     private final StructType schema;
+    //protected for simple unit tests
     protected String bucket, path;
 
     Reader(DataSourceOptions options) {
@@ -82,7 +84,8 @@ class Reader implements DataSourceReader {
                 .withForceGlobalBucketAccessEnabled(true)
                 .build();
 
-        List<S3ObjectSummary> my_list = s3Client.listObjects("npc-custom-conn-test-vendor-bucket").getObjectSummaries();
+        //List<S3ObjectSummary> my_list = s3Client.listObjects("npc-custom-conn-test-vendor-bucket").getObjectSummaries();
+        List<S3ObjectSummary> my_list = s3Client.listObjects(bucket, path).getObjectSummaries();
         List<InputPartition<InternalRow>> rows = new ArrayList<>();
         for (S3ObjectSummary os : my_list) {
             rows.add(new JavaSimpleInputPartition(os.getKey(), bucket, schema));
@@ -156,6 +159,9 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
                     break;
                 case "IntegerType":
                     row_values.add(Integer.parseInt(fields[i]));
+                    break;
+                case "DateType":
+                    row_values.add(Date.valueOf(fields[i]));
                     break;
                 default:
                     System.out.println("No value");
