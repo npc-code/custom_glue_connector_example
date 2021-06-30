@@ -84,10 +84,9 @@ class Reader implements DataSourceReader {
 
         List<S3ObjectSummary> my_list = s3Client.listObjects("npc-custom-conn-test-vendor-bucket").getObjectSummaries();
         List<InputPartition<InternalRow>> rows = new ArrayList<>();
-        for (int i = 0; i < my_list.size(); i++) {
-            //all parameters passed here must be serializable
-            rows.add(new JavaSimpleInputPartition(my_list.get(i).getKey(), bucket, schema));
-        };
+        for (S3ObjectSummary os : my_list) {
+            rows.add(new JavaSimpleInputPartition(os.getKey(), bucket, schema));
+        }
 
         return rows;
 
@@ -117,7 +116,7 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
     BufferedReader reader;
     String line = null;
     StructType schema;
-    StructField[] structfields;
+    StructField[] structFields;
 
     JavaSimpleInputPartitionReader(String key, String bucket, StructType schema) {
         AmazonS3 s3Client = AmazonS3Client.builder()
@@ -130,7 +129,7 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
                 .getObject(new GetObjectRequest(bucket, key));
         reader  = new BufferedReader(new InputStreamReader(s3Object.getObjectContent()));
         this.schema = schema;
-        this.structfields = schema.fields();
+        this.structFields = schema.fields();
     }
 
     @Override
@@ -150,13 +149,18 @@ class JavaSimpleInputPartitionReader implements InputPartitionReader<InternalRow
 
         //this will need to be modified to react to the schema passed.
         for (int i = 0; i < fields.length; i += 1) {
-            if (structfields[i].dataType().toString().equals("StringType")) {
-                row_values.add(UTF8String.fromString(fields[i]));
+            String dataType = structFields[i].dataType().toString();
+            switch (dataType) {
+                case "StringType":
+                    row_values.add(UTF8String.fromString(fields[i]));
+                    break;
+                case "IntegerType":
+                    row_values.add(Integer.parseInt(fields[i]));
+                    break;
+                default:
+                    System.out.println("No value");
             }
 
-            if (structfields[i].dataType().toString().equals("IntegerType")) {
-                row_values.add(Integer.parseInt(fields[i]));
-            }
         }
 
         return new GenericInternalRow(row_values.toArray());
@@ -242,7 +246,6 @@ class JavaSimpleDataWriter implements DataWriter<InternalRow> {
             switch (dataType) {
                 case "StringType":
                     content.append(record.getString(i));
-
                     break;
                 case "IntegerType":
                     content.append(record.getInt(i));
